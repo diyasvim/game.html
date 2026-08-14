@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Memory Card Match Game</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .game {
+            width: 95%;
+            max-width: 900px;
+            background: white;
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px #333;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .info {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 15px;
+            font-size: 18px;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        .control {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #667eea;
+            color: white;
+            font-size: 16px;
+            margin: 5px;
+        }
+
+        .control:hover {
+            background: #4b5fd1;
+        }
+
+        #message {
+            margin: 15px;
+            font-weight: bold;
+            color: #673ab7;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            max-width: 700px;
+            margin: auto;
+        }
+
+        .card {
+            height: 130px;
+            border: none;
+            border-radius: 12px;
+            background: #3949ab;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: 0.5s;
+        }
+
+        .card.flip {
+            transform: rotateY(180deg);
+        }
+
+        .front,
+        .back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            backface-visibility: hidden;
+            font-size: 50px;
+        }
+
+        .front {
+            background: linear-gradient(135deg, #3949ab, #7e57c2);
+            color: white;
+        }
+
+        .back {
+            background: white;
+            transform: rotateY(180deg);
+        }
+
+        .matched .back {
+            background: #c8e6c9;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media(max-width: 600px) {
+            .card {
+                height: 80px;
+            }
+
+            .front,
+            .back {
+                font-size: 30px;
+            }
+
+            .info {
+                gap: 12px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="game">
+
+    <h1>🧠 Memory Card Match</h1>
+
+    <p>Match all the same cards!</p>
+
+    <div class="info">
+        <div>Level: <b id="level">1</b></div>
+        <div>Moves: <b id="moves">0</b></div>
+        <div>Time: <b id="time">0</b>s</div>
+    </div>
+
+    <button class="control" onclick="restartGame()">
+        🔄 Restart
+    </button>
+
+    <button id="nextButton" class="control hidden" onclick="nextLevel()">
+        ➡️ Next Level
+    </button>
+
+    <div id="message">
+        Find all matching pairs!
+    </div>
+
+    <div id="board" class="board"></div>
+
+</div>
+
+
+<script>
+
+    // Different images for different levels
+    const levels = [
+
+        // Level 1
+        ["🍎", "🍌", "🍇", "🍉"],
+
+        // Level 2
+        ["🐶", "🐱", "🐼", "🦊", "🐸", "🐵"],
+
+        // Level 3
+        ["🚗", "🚕", "🚌", "🚓",
+         "✈️", "🚀", "🚲", "🏍️"],
+
+        // Level 4
+        ["⚽", "🏀", "🏈", "⚾",
+         "🎾", "🏐", "🏆", "🎯",
+         "🥊", "🏸"],
+
+        // Level 5
+        ["🌈", "⭐", "🌙", "☀️",
+         "🌸", "🌺", "🌻", "🍀",
+         "🔥", "❄️", "🌊", "🌴"]
+    ];
+
+
+    let currentLevel = 0;
+    let firstCard = null;
+    let secondCard = null;
+
+    let lockBoard = false;
+    let moves = 0;
+    let matched = 0;
+    let time = 0;
+    let timer;
+
+
+    const board = document.getElementById("board");
+    const levelText = document.getElementById("level");
+    const movesText = document.getElementById("moves");
+    const timeText = document.getElementById("time");
+    const message = document.getElementById("message");
+    const nextButton = document.getElementById("nextButton");
+
+
+    // Shuffle cards
+    function shuffle(array) {
+
+        for (let i = array.length - 1; i > 0; i--) {
+
+            let j = Math.floor(Math.random() * (i + 1));
+
+            [array[i], array[j]] =
+            [array[j], array[i]];
+        }
+
+        return array;
+    }
+
+
+    // Start game
+    function startGame() {
+
+        clearInterval(timer);
+
+        firstCard = null;
+        secondCard = null;
+
+        lockBoard = false;
+
+        moves = 0;
+        matched = 0;
+        time = 0;
+
+        movesText.innerText = moves;
+        timeText.innerText = time;
+        levelText.innerText = currentLevel + 1;
+
+        nextButton.classList.add("hidden");
+
+        message.innerText =
+            "Find all matching pairs!";
+
+        board.innerHTML = "";
+
+
+        // Get images for current level
+        let images = levels[currentLevel];
+
+
+        // Make pairs
+        let cards = [...images, ...images];
+
+
+        // Shuffle
+        shuffle(cards);
+
+
+        // Change number of columns
+        if (cards.length >= 20) {
+
+            board.style.gridTemplateColumns =
+                "repeat(5, 1fr)";
+
+        } else {
+
+            board.style.gridTemplateColumns =
+                "repeat(4, 1fr)";
+        }
+
+
+        // Create cards
+        cards.forEach(function(image) {
+
+            let card =
+                document.createElement("button");
+
+            card.classList.add("card");
+
+            card.dataset.image = image;
+
+
+            card.innerHTML = `
+                <div class="front">?</div>
+                <div class="back">${image}</div>
+            `;
+
+
+            card.onclick = function() {
+
+                flipCard(card);
+
+            };
+
+
+            board.appendChild(card);
+
+        });
+
+
+        // Timer
+        timer = setInterval(function() {
+
+            time++;
+
+            timeText.innerText = time;
+
+        }, 1000);
+    }
+
+
+    // Flip card
+    function flipCard(card) {
+
+        // Don't allow invalid clicks
+        if (lockBoard)
+            return;
+
+        if (card === firstCard)
+            return;
+
+        if (card.classList.contains("flip"))
+            return;
+
+        if (card.classList.contains("matched"))
+            return;
+
+
+        // Show card
+        card.classList.add("flip");
+
+
+        // First card
+        if (firstCard === null) {
+
+            firstCard = card;
+
+            return;
+        }
+
+
+        // Second card
+        secondCard = card;
+
+        moves++;
+
+        movesText.innerText = moves;
+
+
+        checkMatch();
+    }
+
+
+    // Check cards
+    function checkMatch() {
+
+        let match =
+            firstCard.dataset.image ===
+            secondCard.dataset.image;
+
+
+        if (match) {
+
+            // Matching cards
+            firstCard.classList.add("matched");
+            secondCard.classList.add("matched");
+
+            matched += 2;
+
+            resetCards();
+
+
+            // Level completed
+            if (
+                matched ===
+                levels[currentLevel].length * 2
+            ) {
+
+                levelCompleted();
+            }
+
+        } else {
+
+            // Wrong cards
+            lockBoard = true;
+
+
+            setTimeout(function() {
+
+                firstCard.classList.remove("flip");
+                secondCard.classList.remove("flip");
+
+                resetCards();
+
+            }, 800);
+        }
+    }
+
+
+    // Reset selected cards
+    function resetCards() {
+
+        firstCard = null;
+        secondCard = null;
+
+        lockBoard = false;
+    }
+
+
+    // Level completed
+    function levelCompleted() {
+
+        clearInterval(timer);
+
+
+        if (currentLevel <
+            levels.length - 1) {
+
+            message.innerText =
+                "🎉 Level Complete!";
+
+            nextButton.classList.remove("hidden");
+
+        } else {
+
+            message.innerText =
+                "🏆 Congratulations! You completed all levels!";
+        }
+    }
+
+
+    // Next level
+    function nextLevel() {
+
+        currentLevel++;
+
+        startGame();
+    }
+
+
+    // Restart
+    function restartGame() {
+
+        currentLevel = 0;
+
+        startGame();
+    }
+
+
+    // Start first level
+    startGame();
+
+</script>
+
+</body>
+</html>
